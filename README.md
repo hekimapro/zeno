@@ -42,14 +42,10 @@ import (
 
 func main() {
 	// Initialize ZenoPay with API credentials
-	zenoPay := zeno.NewZenoPay(zeno.ZenoPayOptionsType{
-		APIKey:    "your_api_key",
-		SecretKey: "your_secret_key",
-		AccountID: "your_account_id",
-	})
+	zenoPay := zenopay.NewZenoPay(APIKey, SecretKey, AccountID)
 
 	// Example usage of Pay function
-	orderID, err := zenoPay.Pay(zeno.PaymentOptionsType{
+	orderID, err := zenoPay.Pay(zenopay.PaymentOptionsType{
 		CustomerName:        "John Doe",
 		CustomerEmail:       "johndoe@example.com",
 		CustomerPhoneNumber: "1234567890",

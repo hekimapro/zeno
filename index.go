@@ -9,9 +9,32 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/hekimapro/zenopay-go/models"
 	"github.com/hekimapro/zenopay-go/utils"
 )
+
+// PaymentStatusResponseType defines the response for checking payment status.
+type PaymentStatusResponseType struct {
+	Status        string `json:"status"`
+	OrderID       string `json:"order_id"`
+	Message       string `json:"message"`
+	PaymentStatus string `json:"payment_status"`
+}
+
+// PaymentOptionsType defines payment details.
+type PaymentOptionsType struct {
+	CustomerName        string  `json:"customer_name" validate:"required"`
+	CustomerEmail       string  `json:"customer_email" validate:"required,email"`
+	CustomerPhoneNumber string  `json:"customer_phone_number" validate:"required,len=10|len=12"`
+	AmountToCharge      float64 `json:"amount_to_charge" validate:"required,gt=0"`
+	CallbackURL         string  `json:"callback_url" validate:"required,url"`
+}
+
+// PaymentResponseType defines the response for a payment request.
+type PaymentResponseType struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	OrderID string `json:"order_id"`
+}
 
 // ZenoPay handles API interactions.
 type ZenoPay struct {
@@ -58,7 +81,7 @@ func (z *ZenoPay) postRequest(route string, data url.Values) ([]byte, error) {
 }
 
 // Pay initiates a payment and returns the order ID or an error.
-func (z *ZenoPay) Pay(options models.PaymentOptionsType) (string, error) {
+func (z *ZenoPay) Pay(options PaymentOptionsType) (string, error) {
 	validate := validator.New()
 	if err := validate.Struct(options); err != nil {
 		fmt.Println(err.Error())
@@ -82,7 +105,7 @@ func (z *ZenoPay) Pay(options models.PaymentOptionsType) (string, error) {
 		return "", err
 	}
 
-	var response models.PaymentResponseType
+	var response PaymentResponseType
 	if err := json.Unmarshal(body, &response); err != nil {
 		fmt.Println(err.Error())
 		return "", utils.CreateError("failed to parse payment response")
@@ -111,7 +134,7 @@ func (z *ZenoPay) CheckPaymentStatus(orderID string) (string, error) {
 		return "", err
 	}
 
-	var response models.PaymentStatusResponseType
+	var response PaymentStatusResponseType
 	if err := json.Unmarshal(body, &response); err != nil {
 		fmt.Println(err.Error())
 		return "", utils.CreateError("failed to parse status response")
