@@ -1,4 +1,4 @@
-package zenopay
+package zeno
 
 import (
 	"encoding/json"
