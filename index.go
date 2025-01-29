@@ -8,8 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/hekimapro/zenopay-go/utils"
+	"github.com/hekimapro/zeno/utils"
 )
 
 // PaymentStatusResponseType defines the response for checking payment status.
@@ -22,11 +21,11 @@ type PaymentStatusResponseType struct {
 
 // PaymentOptionsType defines payment details.
 type PaymentOptionsType struct {
-	CustomerName        string  `json:"customer_name" validate:"required"`
-	CustomerEmail       string  `json:"customer_email" validate:"required,email"`
-	CustomerPhoneNumber string  `json:"customer_phone_number" validate:"required,len=10|len=12"`
-	AmountToCharge      float64 `json:"amount_to_charge" validate:"required,gt=0"`
-	CallbackURL         string  `json:"callback_url" validate:"required,url"`
+	CustomerName        string  `json:"customer_name"`
+	CustomerEmail       string  `json:"customer_email"`
+	CustomerPhoneNumber string  `json:"customer_phone_number"`
+	AmountToCharge      float64 `json:"amount_to_charge"`
+	CallbackURL         string  `json:"callback_url"`
 }
 
 // PaymentResponseType defines the response for a payment request.
@@ -81,12 +80,7 @@ func (z *ZenoPay) postRequest(route string, data url.Values) ([]byte, error) {
 }
 
 // Pay initiates a payment and returns the order ID or an error.
-func (z *ZenoPay) Pay(options PaymentOptionsType) (string, error) {
-	validate := validator.New()
-	if err := validate.Struct(options); err != nil {
-		fmt.Println(err.Error())
-		return "", utils.CreateError("invalid payment options")
-	}
+func (z *ZenoPay) Pay(options PaymentOptionsType) (orderID string, err error) {
 
 	data := url.Values{
 		"create_order": {"1"},
@@ -97,7 +91,7 @@ func (z *ZenoPay) Pay(options PaymentOptionsType) (string, error) {
 		"buyer_name":   {options.CustomerName},
 		"webhook_url":  {options.CallbackURL},
 		"buyer_email":  {options.CustomerEmail},
-		"buyer_phone":  {options.CustomerPhoneNumber},
+		"buyer_phone":  {utils.FormatPhoneNumber(options.CustomerPhoneNumber)},
 	}
 
 	body, err := z.postRequest("", data)
@@ -119,10 +113,7 @@ func (z *ZenoPay) Pay(options PaymentOptionsType) (string, error) {
 }
 
 // CheckPaymentStatus checks payment status and returns the status or an error.
-func (z *ZenoPay) CheckPaymentStatus(orderID string) (string, error) {
-	if orderID == "" {
-		return "", utils.CreateError("order ID is required")
-	}
+func (z *ZenoPay) CheckPaymentStatus(orderID string) (orderStatus string, err error) {
 
 	data := url.Values{
 		"check_status": {"1"},

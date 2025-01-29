@@ -1,6 +1,13 @@
 # ZenoPay
 
-ZenoPay is a Go package for integrating with the ZenoPay payment API. It provides methods to initiate payments and check payment statuses.
+ZenoPay is a simple and seamless payment designed for developers looking to integrate secure and reliable payment functionality into their applications. With minimal setup, you can initiate payments and track their statuses effortlessly.
+
+### Supported Mobile Networks
+ZenoPay supports the following mobile payment networks:
+- **M-PESA**
+- **TIGOPESA (MIX BY YAS)**
+- **HALOPESA**
+- **AIRTEL MONEY**
 
 ## Installation
 
@@ -42,7 +49,7 @@ import (
 
 func main() {
 	// Initialize ZenoPay with API credentials
-	zenoPay := zenopay.NewZenoPay(APIKey, SecretKey, AccountID)
+	zenoPay := zeno.NewZenoPay(APIKey, SecretKey, AccountID)
 
 	// Example usage of Pay function
 	orderID, err := zenoPay.Pay(zenopay.PaymentOptionsType{
