@@ -1,0 +1,6 @@
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/hekimapro/utils v1.3.2 h1:v2R/NK786lzEK0/HKvNrQu8LTEfN8gpGQM1C/4+rwwM=
+github.com/hekimapro/utils v1.3.2/go.mod h1:SigZine5vVFP5CmrrqoAWO6BBdYa1jEXDDdgm9mNb0w=
+github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
+github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
