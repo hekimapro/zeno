@@ -3,133 +3,193 @@ package zeno
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"strings"
 
+	"github.com/hekimapro/utils/log"
+	"github.com/hekimapro/utils/request"
+	"github.com/hekimapro/zeno/models"
 	"github.com/hekimapro/zeno/utils"
 )
 
-// PaymentStatusResponseType defines the response for checking payment status.
-type PaymentStatusResponseType struct {
-	Status        string `json:"status"`
-	OrderID       string `json:"order_id"`
-	Message       string `json:"message"`
-	PaymentStatus string `json:"payment_status"`
-}
+// PushUSSD sends a USSD push request to the configured endpoint and returns the parsed response.
+// It retrieves the API URL and headers, sends the HTTP request, and unmarshals the JSON response.
+//
+// Parameters:
+//   - requestBody: *models.USSDPushRequest with the following fields:
+//     Amount               (float64)  - Transaction amount
+//     OrderID              (string)   - Unique order identifier
+//     CustomerName         (string)   - Buyer’s full name
+//     CustomerPhoneNumber  (string)   - Buyer’s phone number (will be formatted before sending)
+//     CustomerEmailAddress (string)   - Buyer’s email address
+//     WebhookURL           (string)   - Optional webhook URL for transaction status updates
+//     Metadata             (any)      - Optional custom metadata
+//
+// Returns:
+//   - *models.USSDPushResponse with fields:
+//     Status     (string) - Request status
+//     Message    (string) - Response message
+//     OrderID    (string) - Returned order ID (if successful)
+//     ResultCode (string) - Provider-specific result code (if successful)
+//   - error if any step fails.
+func PushUSSD(requestBody *models.USSDPushRequest) (*models.USSDPushResponse, error) {
+	// Get the configured endpoint URL for USSD push requests.
+	URL := utils.GetURL("push")
 
-// PaymentOptionsType defines payment details.
-type PaymentOptionsType struct {
-	CustomerName        string  `json:"customer_name"`
-	CustomerEmail       string  `json:"customer_email"`
-	CustomerPhoneNumber string  `json:"customer_phone_number"`
-	AmountToCharge      float64 `json:"amount_to_charge"`
-	CallbackURL         string  `json:"callback_url"`
-}
-
-// PaymentResponseType defines the response for a payment request.
-type PaymentResponseType struct {
-	Status  string `json:"status"`
-	Message string `json:"message"`
-	OrderID string `json:"order_id"`
-}
-
-// ZenoPay handles API interactions.
-type ZenoPay struct {
-	APIKey    string
-	SecretKey string
-	AccountID string
-	BaseURL   string
-}
-
-// NewZenoPay initializes a new ZenoPay instance.
-func NewZenoPay(apiKey, secretKey, accountID string) *ZenoPay {
-	return &ZenoPay{
-		APIKey:    apiKey,
-		SecretKey: secretKey,
-		AccountID: accountID,
-		BaseURL:   "https://api.zeno.africa",
-	}
-}
-
-// postRequest sends a POST request to the ZenoPay API.
-func (z *ZenoPay) postRequest(route string, data url.Values) ([]byte, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", z.BaseURL, route), strings.NewReader(data.Encode()))
+	// Get required HTTP headers for authentication and content type.
+	headers, err := utils.GetHeaders()
 	if err != nil {
-		fmt.Println(err.Error())
-		return nil, utils.CreateError("failed to create request")
+		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := client.Do(req)
+	// Send the HTTP POST request with payload and headers to the API endpoint.
+	raw, err := request.Post(URL, requestBody, headers)
 	if err != nil {
-		fmt.Println(err.Error())
-		return nil, utils.CreateError("failed to send request")
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, utils.CreateError("failed to read response body")
+		return nil, err
 	}
 
-	return body, nil
+	// Convert the raw JSON response into the USSDPushResponse struct.
+	var responseBody models.USSDPushResponse
+	if err := json.Unmarshal(raw, &responseBody); err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	// Return the parsed API response.
+	return &responseBody, nil
 }
 
-// Pay initiates a payment and returns the order ID or an error.
-func (z *ZenoPay) Pay(options PaymentOptionsType) (orderID string, err error) {
+// CheckStatus retrieves the status of a given order from the configured endpoint.
+// It fetches the API URL and headers, sends a GET request, and parses the JSON response.
+//
+// Parameters:
+//   - orderID: (string) Unique order identifier to check.
+//
+// Returns:
+//   - *models.CheckStatus with fields:
+//     Result     (string) - Status result
+//     Message    (string) - Response message
+//     Reference  (string) - Transaction reference
+//     ResultCode (string) - Provider-specific result code
+//     Data       ([]CheckStatusResponseData) - List of detailed status records, each containing:
+//     OrderID, CreationDate, Amount, PaymentStatus, TransactionID, Channel, Reference, MSISDN
+//   - error if any step fails.
+func CheckStatus(orderID string) (*models.CheckStatus, error) {
+	// Build the full status check URL by appending the order ID as a query parameter.
+	URL := fmt.Sprintf("%s?order_id=%s", utils.GetURL("status"), orderID)
 
-	data := url.Values{
-		"create_order": {"1"},
-		"api_key":      {z.APIKey},
-		"account_id":   {z.AccountID},
-		"secret_key":   {z.SecretKey},
-		"amount":       {fmt.Sprintf("%f", options.AmountToCharge)},
-		"buyer_name":   {options.CustomerName},
-		"webhook_url":  {options.CallbackURL},
-		"buyer_email":  {options.CustomerEmail},
-		"buyer_phone":  {utils.FormatPhoneNumber(options.CustomerPhoneNumber)},
-	}
-
-	body, err := z.postRequest("", data)
+	// Get required HTTP headers for authentication and content type.
+	headers, err := utils.GetHeaders()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	var response PaymentResponseType
-	if err := json.Unmarshal(body, &response); err != nil {
-		fmt.Println(err.Error())
-		return "", utils.CreateError("failed to parse payment response")
+	// Send the HTTP GET request to the API endpoint.
+	raw, err := request.Get(URL, headers)
+	if err != nil {
+		return nil, err
 	}
 
-	if response.OrderID == "" {
-		return "", utils.CreateError(response.Message)
+	// Convert the raw JSON response into the CheckStatus struct.
+	var responseBody models.CheckStatus
+	if err := json.Unmarshal(raw, &responseBody); err != nil {
+		log.Error(err.Error())
+		return nil, err
 	}
 
-	return response.OrderID, nil
+	// Return the parsed API response containing the order status.
+	return &responseBody, nil
 }
 
-// CheckPaymentStatus checks payment status and returns the status or an error.
-func (z *ZenoPay) CheckPaymentStatus(orderID string) (orderStatus string, err error) {
+// SendMoney sends a cash-in transaction request to the configured endpoint.
+// It retrieves the API URL and headers, sends the HTTP POST request, and parses the JSON response.
+//
+// Parameters:
+//   - requestBody: *models.SendMoneyRequest with the following fields:
+//     TransactionID (string)  - Unique transaction ID
+//     UtilityCode   (string)  - Provider utility code (e.g., "CASHIN")
+//     PhoneNumber   (string)  - Recipient phone number (will be formatted before sending)
+//     Amount        (float64) - Amount to send
+//     PIN           (int)     - Security PIN
+//
+// Returns:
+//   - *models.SendMoneyResponse with fields:
+//     Status        (string)  - Request status
+//     Message       (string)  - Response message
+//     AmountSent    (float64) - Amount successfully sent
+//     TotalDeducted (float64) - Total amount deducted from balance
+//     NewBalance    (float64) - New account balance
+//     ZenoPayResponse (SendMoneyZenoPayResponseData) - Provider-specific details
+//   - error if any step fails.
+func SendMoney(requestBody *models.SendMoneyRequest) (*models.SendMoneyResponse, error) {
+	// Get the configured endpoint URL for sending money (cash-in).
+	URL := utils.GetURL("cashin")
 
-	data := url.Values{
-		"check_status": {"1"},
-		"order_id":     {orderID},
-	}
-
-	body, err := z.postRequest("order-status", data)
+	// Get required HTTP headers for authentication and content type.
+	headers, err := utils.GetHeaders()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	var response PaymentStatusResponseType
-	if err := json.Unmarshal(body, &response); err != nil {
-		fmt.Println(err.Error())
-		return "", utils.CreateError("failed to parse status response")
+	// Send the HTTP POST request with payload and headers to the API endpoint.
+	raw, err := request.Post(URL, requestBody, headers)
+	if err != nil {
+		return nil, err
 	}
 
-	return response.PaymentStatus, nil
+	// Convert the raw JSON response into the SendMoneyResponse struct.
+	var responseBody models.SendMoneyResponse
+	if err := json.Unmarshal(raw, &responseBody); err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	// Return the parsed API response.
+	return &responseBody, nil
+}
+
+// Checkout sends a checkout request to the configured endpoint.
+// It retrieves the API URL and headers, sends the HTTP POST request, and parses the JSON response.
+//
+// Parameters:
+//   - requestBody: *models.CheckoutRequest with the following fields:
+//     Amount               (float64)  - Transaction amount
+//     Currency             (string)   - Currency code (e.g., "USD", "TZS")
+//     RedirectURL          (string)   - URL to redirect after payment
+//     CustomerName         (string)   - Buyer’s full name
+//     CustomerPhoneNumber  (string)   - Buyer’s phone number (will be formatted before sending)
+//     CustomerEmailAddress (string)   - Buyer’s email address
+//     WebhookURL           (string)   - Webhook URL for transaction status updates
+//     Metadata             (any)      - Custom metadata
+//     OrderID              (string)   - Unique order identifier
+//
+// Returns:
+//   - *models.CheckoutResponse with fields:
+//     PaymentLink          (string) - URL to complete the payment
+//     TransactionReference (string) - Provider transaction reference
+//     Error                (string) - Optional error message
+//   - error if any step fails.
+func Checkout(requestBody *models.CheckoutRequest) (*models.CheckoutResponse, error) {
+	// Get the configured endpoint URL for checkout requests.
+	URL := utils.GetURL("checkout")
+
+	// Get required HTTP headers for authentication and content type.
+	headers, err := utils.GetHeaders()
+	if err != nil {
+		return nil, err
+	}
+
+	// Send the HTTP POST request with payload and headers to the API endpoint.
+	raw, err := request.Post(URL, requestBody, headers)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert the raw JSON response into the CheckoutResponse struct.
+	var responseBody models.CheckoutResponse
+	if err := json.Unmarshal(raw, &responseBody); err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	// Return the parsed API response.
+	return &responseBody, nil
 }
