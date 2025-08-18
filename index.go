@@ -40,6 +40,7 @@ func PushUSSD(requestBody *models.USSDPushRequest) (*models.USSDPushResponse, er
 		return nil, err
 	}
 
+	fmt.Println(headers)
 	// Send the HTTP POST request with payload and headers to the API endpoint.
 	raw, err := request.Post(URL, requestBody, headers)
 	if err != nil {
